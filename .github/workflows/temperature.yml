@@ -1,0 +1,57 @@
+name: temperature
+
+# Replaces the Cloud Run jobs scheduled_temperature_tiles and
+# scheduled_temperature_archive. Times are UTC. GitHub's scheduler can run late
+# under load, which is fine here: the tile set is regenerated a few hours after
+# each GFS cycle, and a late archive still lands in the right hour bucket because
+# the key is derived from the wall clock, not from when the job starts.
+on:
+  schedule:
+    # ~3.5 h after each GFS run (00/06/12/18Z), matching the old schedule.
+    - cron: '30 3,9,15,21 * * *'
+    # Hourly archive of the current hour into the rolling history.
+    - cron: '5 * * * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Which task to run
+        type: choice
+        options: [archive, tiles]
+        default: archive
+
+concurrency:
+  # Never let a slow tile run overlap the next one.
+  group: temperature
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Pick task
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "task=${{ inputs.task }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "30 3,9,15,21 * * *" ]; then
+            echo "task=tiles" >> "$GITHUB_OUTPUT"
+          else
+            echo "task=archive" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python jobs/temperature.py ${{ steps.pick.outputs.task }}

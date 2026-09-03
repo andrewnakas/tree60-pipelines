@@ -1,0 +1,15 @@
+# Shared across the raster jobs. Pinned loosely: these read public Zarr/GRIB
+# archives whose readers move fast, and the workflows run on a schedule where a
+# silent break is worse than an upgrade.
+boto3>=1.34
+numpy>=1.24
+Pillow>=10.0
+requests>=2.31
+
+# Zarr access for the GFS-derived overlays (temperature, wind).
+zarr>=3.0.8
+fsspec>=2024.9.0
+aiohttp>=3.10.0
+
+# Reprojection to Web Mercator in the temperature/wind overlays.
+scipy>=1.10
