@@ -22,6 +22,32 @@ logging.basicConfig(
 log = logging.getLogger("temperature")
 
 
+def _write_manifest(result):
+    """
+    Publish hour -> tile URL so the edge can serve the overlay without knowing how
+    tile keys are derived from GFS run times.
+    """
+    import json
+    from datetime import datetime, timezone
+
+    import r2_storage as storage
+
+    hours = {
+        str(item["hour"]): {"url": item["url"], "valid_time": item.get("valid_time")}
+        for item in result["results"]["success"]
+        if item.get("url")
+    }
+    manifest = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "hours": hours,
+        "count": len(hours),
+    }
+    blob = storage.Client().bucket().blob("temperature_tiles/manifest.json")
+    blob.cache_control = "public, max-age=300"
+    blob.upload_from_string(json.dumps(manifest), content_type="application/json")
+    log.info("manifest: %s hours -> %s", len(hours), blob.public_url)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("task", choices=["tiles", "archive"])
@@ -31,6 +57,7 @@ def main():
         from temp_tile_scheduler import regenerate_all_temperature_tiles
 
         result = regenerate_all_temperature_tiles()
+        _write_manifest(result)
         log.info(
             "tiles: %s ok, %s failed of %s",
             result["success_count"],
