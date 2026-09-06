@@ -1,0 +1,10 @@
+# HRRR virtual smoke only. Python 3.12+: icechunk >= 2.0 dropped 3.11.
+# Installed on top of requirements.txt.
+dynamical-catalog>=0.7.0
+icechunk>=2.0
+gribberish>=1.5
+xarray>=2025.1.2
+pandas>=2.0
+pyproj>=3.6
+rasterio>=1.3.9
+s3fs>=2024.9.0

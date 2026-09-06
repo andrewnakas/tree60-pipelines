@@ -1,6 +1,7 @@
-# Shared across the raster jobs. Pinned loosely: these read public Zarr/GRIB
-# archives whose readers move fast, and the workflows run on a schedule where a
-# silent break is worse than an upgrade.
+# Base dependencies, Python 3.11+.
+# Jobs needing Python 3.12 (currently HRRR smoke, because icechunk >= 2.0 dropped
+# 3.11) install requirements-smoke.txt on top of this. Keep 3.12-only packages OUT
+# of this file: every 3.11 workflow installs it.
 boto3>=1.34
 numpy>=1.24
 Pillow>=10.0
@@ -13,13 +14,3 @@ aiohttp>=3.10.0
 
 # Reprojection to Web Mercator in the temperature/wind overlays.
 scipy>=1.10
-
-# HRRR virtual smoke: icechunk virtual store + GRIB decode + reprojection.
-dynamical-catalog>=0.7.0
-icechunk>=2.0
-gribberish>=1.5
-xarray>=2025.1.2
-pandas>=2.0
-pyproj>=3.6
-rasterio>=1.3.9
-s3fs>=2024.9.0
