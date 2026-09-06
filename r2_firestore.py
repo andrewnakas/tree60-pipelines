@@ -141,7 +141,44 @@ class _LimitedCollection:
             yield doc
 
 
+class WriteBatch:
+    """
+    Firestore's batch API, applied on commit.
+
+    There is no atomicity here — R2 has no multi-object transaction — but these
+    pipelines use batches only to cut round trips, never for consistency.
+    """
+
+    def __init__(self):
+        self._ops = []
+
+    def set(self, ref, data, merge=False):
+        self._ops.append(("set", ref, data, merge))
+        return self
+
+    def update(self, ref, data):
+        self._ops.append(("set", ref, data, True))
+        return self
+
+    def delete(self, ref):
+        self._ops.append(("delete", ref, None, False))
+        return self
+
+    def commit(self):
+        for op, ref, data, merge in self._ops:
+            if op == "set":
+                ref.set(data, merge=merge)
+            else:
+                ref.delete()
+        n = len(self._ops)
+        self._ops = []
+        return n
+
+
 class Client:
+    def batch(self):
+        return WriteBatch()
+
     def collection(self, name):
         return CollectionReference(posixpath.join(ROOT, name))
 
