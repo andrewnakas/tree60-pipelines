@@ -76,6 +76,63 @@ def _write_tile_manifest(by_level):
     log.info("manifest: %s tiles -> %s", manifest["count"], blob.public_url)
 
 
+def _render_velocity_forecast():
+    """
+    Pre-render and store the leaflet-velocity field for forecast hours 0..18.
+
+    The Cloud Function fetched these from GFS on every request (~2 MB per call,
+    no caching). Storing them means the edge can serve the layer, and the GFS read
+    happens 38 times a day instead of once per viewer.
+    """
+    import json
+
+    import r2_storage as storage
+    from gfs_wind_velocity import fetch_gfs_wind_velocity, get_folders_for_level
+
+    bucket = storage.Client().bucket()
+    by_level = {}
+    ok = bad = 0
+    for level in LEVELS:
+        folder, _ = get_folders_for_level(level)
+        hours = {}
+        for hour in range(0, 19):
+            try:
+                result = fetch_gfs_wind_velocity(hour, level)
+                if not result:
+                    bad += 1
+                    log.error("  velocity %s hour %+d: returned nothing", level, hour)
+                    continue
+                # Store the full response envelope so the edge can stream the
+                # object straight through instead of unwrapping ~2 MB per request.
+                key = f"{folder}/h{hour:+03d}.json"
+                blob = bucket.blob(key)
+                blob.cache_control = "public, max-age=1800"
+                blob.upload_from_string(
+                    json.dumps({"status": "success", "data": result}, default=str),
+                    content_type="application/json",
+                )
+                hours[str(hour)] = {"url": blob.public_url}
+                ok += 1
+            except Exception as e:
+                bad += 1
+                log.error("  velocity %s hour %+d: %s", level, hour, e)
+        by_level[level] = hours
+        log.info("velocity forecast %s: %s hours", level, len(hours))
+
+    manifest = {
+        "generated_at": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc
+        ).isoformat(),
+        "levels": by_level,
+        "count": sum(len(v) for v in by_level.values()),
+    }
+    mb = bucket.blob("wind_velocity/manifest.json")
+    mb.cache_control = "public, max-age=300"
+    mb.upload_from_string(json.dumps(manifest), content_type="application/json")
+    log.info("velocity manifest: %s entries", manifest["count"])
+    return ok, bad
+
+
 def _run_levels(fn, label):
     """Run fn for both levels, tolerating one level failing."""
     results, failed = {}, []
@@ -96,7 +153,7 @@ def _run_levels(fn, label):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("task", choices=["tiles", "archive", "velocity"])
+    ap.add_argument("task", choices=["tiles", "archive", "velocity", "velocity-forecast"])
     args = ap.parse_args()
 
     if args.task == "tiles":
@@ -115,6 +172,12 @@ def main():
         from gfs_wind_velocity import archive_current_velocity
 
         _run_levels(archive_current_velocity, "velocity archive")
+
+    elif args.task == "velocity-forecast":
+        ok, bad = _render_velocity_forecast()
+        log.info("velocity forecast: %s ok, %s failed", ok, bad)
+        if ok + bad and ok < (ok + bad) * 0.75:
+            raise SystemExit(f"too many velocity failures: {bad}/{ok + bad}")
 
 
 if __name__ == "__main__":

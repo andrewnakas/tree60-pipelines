@@ -7,6 +7,8 @@ on:
   schedule:
     # Tiles: ~3.5 h after each GFS run, matching the old schedule.
     - cron: '35 3,9,15,21 * * *'
+    # Velocity forecast fields, same cadence, offset so the two do not overlap.
+    - cron: '50 3,9,15,21 * * *'
     # Hourly archives. Split by minute so the two never contend for the runner.
     - cron: '10 * * * *'
     - cron: '15 * * * *'
@@ -15,7 +17,7 @@ on:
       task:
         description: Which task to run
         type: choice
-        options: [archive, velocity, tiles]
+        options: [archive, velocity, tiles, velocity-forecast]
         default: archive
 
 concurrency:
@@ -42,6 +44,7 @@ jobs:
           case "${{ github.event_name }}:${{ github.event.schedule }}" in
             workflow_dispatch:*) task="${{ inputs.task }}" ;;
             *"35 3,9,15,21 * * *") task=tiles ;;
+            *"50 3,9,15,21 * * *") task=velocity-forecast ;;
             *"15 * * * *")         task=velocity ;;
             *)                     task=archive ;;
           esac
