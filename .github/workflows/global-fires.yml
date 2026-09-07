@@ -1,0 +1,36 @@
+name: global-fires
+
+# Replaces scheduled_global_fire_clustering (~$0.46/mo, 6-hourly on 4 GiB Cloud Run).
+# NASA FIRMS publishes a rolling 24 h global hotspot file; DBSCAN clusters the
+# ~115k detections outside the continental US into drawable fires.
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Cluster and report without publishing
+        type: boolean
+        default: false
+
+concurrency:
+  group: global-fires
+  cancel-in-progress: false
+
+jobs:
+  cluster:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Cluster
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python jobs/global_fires.py ${{ inputs.dry_run && '--dry-run' || '' }}
