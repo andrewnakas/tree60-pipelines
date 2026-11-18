@@ -1,0 +1,40 @@
+name: hms-smoke
+
+# Replaces scheduled_scrape_smoke_data_unified (~$0.94/mo hourly on Cloud Run).
+# NOAA HMS publishes smoke analyses a few times a day; the hourly cadence is kept
+# so the layer picks up a new analysis promptly.
+on:
+  schedule:
+    - cron: '20 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Fetch and report without writing
+        type: boolean
+        default: false
+
+concurrency:
+  group: hms-smoke
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Ingest
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python jobs/hms_smoke.py ${{ inputs.dry_run && '--dry-run' || '' }}
+# Schedule re-registered 2026-11-18 after GitHub disabled it for inactivity.
