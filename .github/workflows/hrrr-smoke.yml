@@ -1,0 +1,55 @@
+name: hrrr-smoke
+
+# Replaces scheduled_hrrr_virtual_smoke_render, which was the most expensive
+# service left on Cloud Run (~$22.56/mo on 2 vCPU / 4 GiB, ~11 min per run).
+#
+# Progressive render: HRRR inits every 6 h and the virtual store's leads stream in
+# over the following ~35-60 min, so this runs hourly and renders whatever is newly
+# available. Frames that already exist are skipped, so the runs outside that window
+# are cheap.
+#
+# Python 3.12: icechunk >= 2.0 requires it.
+on:
+  schedule:
+    - cron: '20 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Re-render frames that already exist
+        type: boolean
+        default: false
+      source:
+        description: Data source preference
+        type: choice
+        options: [auto, virtual, legacy]
+        default: auto
+
+concurrency:
+  # The render pass leases a run key; never let two passes overlap.
+  group: hrrr-smoke
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt -r requirements-smoke.txt
+
+      - name: Render
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          python jobs/hrrr_smoke.py \
+            --source "${{ inputs.source || 'auto' }}" \
+            ${{ inputs.force && '--force' || '' }}
+# Schedule re-registered 2026-11-18 after GitHub disabled it for inactivity.
