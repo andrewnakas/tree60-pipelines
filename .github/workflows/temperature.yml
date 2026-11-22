@@ -1,4 +1,10 @@
 name: temperature
+# The task in the title ("temperature tiles"), so a run says what it is and
+# .github/watchdog can tell a missed tiles run from an archive that ran.
+run-name: >-
+  temperature ${{ inputs.task
+  || (github.event.schedule == '30 3,9,15,21 * * *' && 'tiles')
+  || 'archive' }}
 
 # Replaces the Cloud Run jobs scheduled_temperature_tiles and
 # scheduled_temperature_archive. Times are UTC. GitHub's scheduler can run late

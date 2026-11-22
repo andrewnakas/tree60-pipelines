@@ -1,0 +1,15 @@
+{
+  "_about": "Each task's cron is copied from its workflow's schedule; change both together. title matches the workflow's run-name, for workflows that run several tasks. grace is how many minutes after the slot to wait for GitHub's own run before dispatching one.",
+  "tasks": [
+    {"workflow": "wind.yml", "title": "wind archive", "cron": "10 * * * *", "grace": 30, "inputs": {"task": "archive"}},
+    {"workflow": "wind.yml", "title": "wind velocity", "cron": "15 * * * *", "grace": 30, "inputs": {"task": "velocity"}},
+    {"workflow": "wind.yml", "title": "wind tiles", "cron": "35 3,9,15,21 * * *", "grace": 40, "inputs": {"task": "tiles"}},
+    {"workflow": "wind.yml", "title": "wind velocity-forecast", "cron": "50 3,9,15,21 * * *", "grace": 40, "inputs": {"task": "velocity-forecast"}},
+    {"workflow": "temperature.yml", "title": "temperature archive", "cron": "5 * * * *", "grace": 30, "inputs": {"task": "archive"}},
+    {"workflow": "temperature.yml", "title": "temperature tiles", "cron": "30 3,9,15,21 * * *", "grace": 40, "inputs": {"task": "tiles"}},
+    {"workflow": "hrrr-smoke.yml", "cron": "20 * * * *", "grace": 30},
+    {"workflow": "hms-smoke.yml", "cron": "20 * * * *", "grace": 30},
+    {"workflow": "waves.yml", "cron": "15 2,8,14,20 * * *", "grace": 40},
+    {"workflow": "global-fires.yml", "cron": "0 */6 * * *", "grace": 40}
+  ]
+}

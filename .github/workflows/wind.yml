@@ -1,4 +1,12 @@
 name: wind
+# The task in the title ("wind tiles"), so a run says what it is and
+# .github/watchdog can tell a missed tiles run from an archive that ran.
+run-name: >-
+  wind ${{ inputs.task
+  || (github.event.schedule == '35 3,9,15,21 * * *' && 'tiles')
+  || (github.event.schedule == '50 3,9,15,21 * * *' && 'velocity-forecast')
+  || (github.event.schedule == '15 * * * *' && 'velocity')
+  || 'archive' }}
 
 # Replaces scheduled_wind_tiles, scheduled_wind_archive and
 # scheduled_wind_velocity_archive (~$5.20/mo between them on 2 GiB Cloud Run).
